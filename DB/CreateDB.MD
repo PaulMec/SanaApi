@@ -1,5 +1,3 @@
-Claro, aquí tienes un archivo Markdown (.md) que explica la creación de la base de datos utilizando Entity Framework Code First:
-
 ```markdown
 # Creación de una Base de Datos con Entity Framework Code First
 
