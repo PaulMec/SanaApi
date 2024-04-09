@@ -1,6 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿
+using DB.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Proxies;
 
-namespace DB
+
+namespace DB.Context
 {
     public class SanaStoreContext : DbContext
     {
@@ -14,12 +18,14 @@ namespace DB
         public SanaStoreContext(DbContextOptions<SanaStoreContext> options) : base(options)
         {
         }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Orders>()
                 .HasOne(o => o.Customer)
                 .WithMany(c => c.Orders)
-                .HasForeignKey(o => o.CustomerID);
+                .HasForeignKey(o => o.CustomerID)
+                .IsRequired();
 
             modelBuilder.Entity<OrderDetail>()
                 .HasOne(od => od.Order)

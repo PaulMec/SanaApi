@@ -6,26 +6,18 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DB
+namespace DB.Models
 {
-    public class OrderDetail
+    public class ProductCategory
     {
-        [Key]
-        public int OrderDetailID { get; set; }
-
-        public int OrderID { get; set; }
-
         public int ProductID { get; set; }
 
-        public int Quantity { get; set; }
-
-        [Column(TypeName = "decimal(18, 2)")]
-        public decimal Price { get; set; }
-
-        [ForeignKey("OrderID")]
-        public virtual Orders Order { get; set; }
+        public int CategoryID { get; set; }
 
         [ForeignKey("ProductID")]
         public virtual Products Product { get; set; }
+
+        [ForeignKey("CategoryID")]
+        public virtual Category Category { get; set; }
     }
 }
