@@ -1,155 +1,151 @@
-﻿using DB.Context;
-using DB.Models;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Mvc;
+using SanaStoreAPI.Infrastructure.Services.Interfaces;
 using SanaStoreAPI.Domain.Models;
-using System.Collections.Generic;
-using System.Linq;
+using System;
 using System.Threading.Tasks;
 
-namespace SanaStoreAPI.Presentation.Controllers
+[Route("api/[controller]")]
+[ApiController]
+public class CustomersController : ControllerBase
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class CustomersController : ControllerBase
+    private readonly ICustomersService _customersService;
+
+    /// <summary>
+    /// Initializes a new instance of the CustomersController.
+    /// </summary>
+    /// <param name="customersService">Service to manage customer data.</param>
+    public CustomersController(ICustomersService customersService)
     {
-        private readonly SanaStoreContext _context;
+        _customersService = customersService;
+    }
 
-        public CustomersController(SanaStoreContext context)
+    /// <summary>
+    /// Retrieves all customers.
+    /// </summary>
+    /// <returns>An ActionResult containing all customers or an error message if an exception occurs.</returns>
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        try
         {
-            _context = context;
+            var customers = await _customersService.GetCustomers();
+            return Ok(customers);
         }
-
-        /// <summary>
-        /// Retrieves all customers.
-        /// </summary>
-        /// <returns>A list of all customers.</returns>
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<CustomersDTO>>> GetCustomers()
+        catch (Exception ex)
         {
-            var customers = await _context.Customers.ToListAsync();
-            var customerDtos = MapCustomersToCustomerDto(customers);
-            return Ok(customerDtos);
+            return StatusCode(500, ex.Message);
         }
+    }
 
-        /// <summary>
-        /// Retrieves a specific customer by its ID.
-        /// </summary>
-        /// <param name="id">The ID of the customer to retrieve.</param>
-        /// <returns>The customer with the specified ID.</returns>
-        [HttpGet("{id}")]
-        public async Task<ActionResult<CustomersDTO>> GetCustomer(int id)
+    /// <summary>
+    /// Retrieves a single customer by ID.
+    /// </summary>
+    /// <param name="id">The ID of the customer to retrieve.</param>
+    /// <returns>An ActionResult containing the customer data or NotFound if the customer does not exist.</returns>
+    [HttpGet("{id}")]
+    public async Task<IActionResult> Get(int id)
+    {
+        try
         {
-            var customer = await _context.Customers.FindAsync(id);
-
+            var customer = await _customersService.GetCustomer(id);
             if (customer == null)
             {
                 return NotFound();
             }
-
-            var customerDto = MapCustomerToCustomerDto(customer);
-
-            return Ok(customerDto);
+            return Ok(customer);
         }
-
-        /// <summary>
-        /// Creates a new customer.
-        /// </summary>
-        /// <param name="customer">The customer to create.</param>
-        /// <returns>The newly created customer.</returns>
-        [HttpPost]
-        public async Task<ActionResult<CustomersDTO>> CreateCustomer(Customers customer)
+        catch (Exception ex)
         {
-            _context.Customers.Add(customer);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetCustomer), new { id = customer.CustomerID }, customer);
+            return StatusCode(500, ex.Message);
         }
+    }
 
-        /// <summary>
-        /// Updates an existing customer.
-        /// </summary>
-        /// <param name="id">The ID of the customer to update.</param>
-        /// <param name="customer">The updated customer data.</param>
-        /// <returns>No content.</returns>
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCustomer(int id, Customers customer)
+    /// <summary>
+    /// Retrieves a customer by their email address.
+    /// </summary>
+    /// <param name="email">The email address of the customer to retrieve.</param>
+    /// <returns>An ActionResult containing the customer data or NotFound if no customer is found with that email.</returns>
+    [HttpGet("email/{email}")]
+    public async Task<IActionResult> GetByEmail(string email)
+    {
+        try
         {
-            if (id != customer.CustomerID)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(customer).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!CustomerExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
-        }
-
-        /// <summary>
-        /// Deletes a customer.
-        /// </summary>
-        /// <param name="id">The ID of the customer to delete.</param>
-        /// <returns>No content.</returns>
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteCustomer(int id)
-        {
-            var customer = await _context.Customers.FindAsync(id);
+            var customer = await _customersService.GetCustomerByEmail(email);
             if (customer == null)
+            {
+                return NotFound("Customer not found.");
+            }
+            return Ok(customer);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Creates a new customer.
+    /// </summary>
+    /// <param name="customerDto">Data transfer object containing the customer data to create.</param>
+    /// <returns>A CreatedAtAction result with the new customer data if successful, or an error status if an exception occurs.</returns>
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CustomersDTO customerDto)
+    {
+        try
+        {
+            var createdCustomer = await _customersService.CreateCustomer(customerDto);
+            return CreatedAtAction(nameof(Get), new { id = createdCustomer.CustomerID }, createdCustomer);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Updates an existing customer.
+    /// </summary>
+    /// <param name="id">The ID of the customer to update.</param>
+    /// <param name="customerDto">Data transfer object containing the updated data for the customer.</param>
+    /// <returns>A NoContent result if successful, NotFound if the customer does not exist, or an error status if an exception occurs.</returns>
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] CustomersDTO customerDto)
+    {
+        try
+        {
+            var success = await _customersService.UpdateCustomer(id, customerDto);
+            if (!success)
             {
                 return NotFound();
             }
-
-            _context.Customers.Remove(customer);
-            await _context.SaveChangesAsync();
-
             return NoContent();
         }
-
-        private bool CustomerExists(int id)
+        catch (Exception ex)
         {
-            return _context.Customers.Any(e => e.CustomerID == id);
+            return StatusCode(500, ex.Message);
         }
+    }
 
-        /// <summary>
-        /// Maps a collection of customer entities to a list of customer DTOs.
-        /// </summary>
-        /// <param name="customers">The collection of customer entities to map.</param>
-        /// <returns>A list of mapped customer DTOs.</returns>
-        private List<CustomersDTO> MapCustomersToCustomerDto(IEnumerable<Customers> customers)
+    /// <summary>
+    /// Deletes an existing customer.
+    /// </summary>
+    /// <param name="id">The ID of the customer to delete.</param>
+    /// <returns>A NoContent result if successful, NotFound if the customer does not exist, or an error status if an exception occurs.</returns>
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try
         {
-            return customers.Select(MapCustomerToCustomerDto).ToList();
-        }
-
-        /// <summary>
-        /// Maps a customer entity to a customer DTO.
-        /// </summary>
-        /// <param name="customer">The customer entity to map.</param>
-        /// <returns>The mapped customer DTO.</returns>
-        private CustomersDTO MapCustomerToCustomerDto(Customers customer)
-        {
-            return new CustomersDTO
+            var success = await _customersService.DeleteCustomer(id);
+            if (!success)
             {
-                CustomerID = customer.CustomerID,
-                FirstName = customer.FirstName,
-                LastName = customer.LastName,
-                Email = customer.Email
-            };
+                return NotFound();
+            }
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
         }
     }
 }

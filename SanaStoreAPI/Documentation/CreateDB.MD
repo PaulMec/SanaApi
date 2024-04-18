@@ -35,15 +35,18 @@ Se crea una clase que hereda de `DbContext` y contiene propiedades que represent
 ```csharp
 using Microsoft.EntityFrameworkCore;
 
-public class StoreContext : DbContext
+public class SanaStoreContext : DbContext
 {
-    public DbSet<Product> Products { get; set; }
-    public DbSet<Category> Categories { get; set; }
+        public DbSet<Category> Categories { get; set; }
+        public DbSet<Products> Products { get; set; }
+        public DbSet<Customers> Customers { get; set; }
+        public DbSet<Orders> Orders { get; set; }
+        public DbSet<OrderDetail> OrderDetails { get; set; }
+        public DbSet<ProductCategory> ProductCategories { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        optionsBuilder.UseSqlServer("cadena de conexión a la base de datos");
-    }
+        public SanaStoreContext(DbContextOptions<SanaStoreContext> options) : base(options)
+        {
+        }
 }
 ```
 
@@ -72,7 +75,7 @@ Una vez creada la base de datos, se puede acceder a ella desde la aplicación ut
 Por ejemplo, para agregar un nuevo producto a la base de datos:
 
 ```csharp
-using (var context = new StoreContext())
+using (var context = new SanaStoreContext())
 {
     var newProduct = new Product { Name = "Nuevo Producto", Price = 10.99 };
     context.Products.Add(newProduct);
