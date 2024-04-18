@@ -1,183 +1,143 @@
-﻿using DB.Context;
-using DB.Models;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Mvc;
+using SanaStoreAPI.Infrastructure.Services.Interfaces;
 using SanaStoreAPI.Domain.Models;
-using System.Collections.Generic;
+using System;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
-namespace SanaStoreAPI.Presentation.Controllers
+[Route("api/[controller]")]
+[ApiController]
+public class OrdersController : ControllerBase
 {
+    private readonly IOrdersService _ordersService;
+
     /// <summary>
-    /// API controller for managing orders.
+    /// Constructor for the OrdersController.
     /// </summary>
-    [Route("api/[controller]")]
-    [ApiController]
-    public class OrdersController : ControllerBase
+    /// <param name="ordersService">The service responsible for order operations.</param>
+    public OrdersController(IOrdersService ordersService)
     {
-        private readonly SanaStoreContext _context;
+        _ordersService = ordersService;
+    }
 
-        public OrdersController(SanaStoreContext context)
+    /// <summary>
+    /// Retrieves all orders.
+    /// </summary>
+    /// <returns>A list of all orders in the system.</returns>
+    [HttpGet]
+    public async Task<IActionResult> GetOrders()
+    {
+        try
         {
-            _context = context;
+            var orders = await _ordersService.GetOrders();
+            return Ok(orders);
         }
-
-        /// <summary>
-        /// Retrieves all orders.
-        /// </summary>
-        /// <returns>A list of all orders.</returns>
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<OrdersDTO>>> GetOrders()
+        catch (Exception ex)
         {
-            var orders = await _context.Orders
-                .Include(o => o.Customer)
-                .Include(o => o.OrderDetails)
-                .ToListAsync();
-
-            var orderDtos = MapOrdersToOrderDto(orders);
-
-            return Ok(orderDtos);
+            return StatusCode(500, ex.Message);
         }
+    }
 
-        /// <summary>
-        /// Retrieves a specific order by its ID.
-        /// </summary>
-        /// <param name="id">The ID of the order to retrieve.</param>
-        /// <returns>The order with the specified ID.</returns>
-        [HttpGet("{id}")]
-        public async Task<ActionResult<OrdersDTO>> GetOrder(int id)
+    /// <summary>
+    /// Retrieves a specific order by ID.
+    /// </summary>
+    /// <param name="id">The ID of the order to retrieve.</param>
+    /// <returns>The specified order if found; otherwise, a not found result.</returns>
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetOrder(int id)
+    {
+        try
         {
-            var order = await _context.Orders
-                .Include(o => o.Customer)
-                .Include(o => o.OrderDetails)
-                .FirstOrDefaultAsync(o => o.OrderID == id);
-
-            if (order == null)
+            var order = await _ordersService.GetOrder(id);
+            if (order != null)
             {
-                return NotFound();
+                return Ok(order);
             }
+            else
+            {
+                return NotFound($"Order with ID {id} not found.");
+            }
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
 
-            var orderDto = MapOrderToOrderDto(order);
-
-            return orderDto;
+    /// <summary>
+    /// Creates a new order.
+    /// </summary>
+    /// <param name="orderDto">The order data transfer object containing information about the new order.</param>
+    /// <returns>A created result with the new order if successful; otherwise, returns a status indicating the failure.</returns>
+    [HttpPost]
+    public async Task<IActionResult> CreateOrder([FromBody] OrdersDTO orderDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
         }
 
-        /// <summary>
-        /// Creates a new order.
-        /// </summary>
-        /// <param name="order">The order to create.</param>
-        /// <returns>The newly created order.</returns>
-        [HttpPost]
-        public async Task<ActionResult<Orders>> CreateOrder(Orders order)
+        try
         {
-            _context.Orders.Add(order);
-            await _context.SaveChangesAsync();
-
+            var order = await _ordersService.CreateOrder(orderDto, orderDto.CustomerID);
             return CreatedAtAction(nameof(GetOrder), new { id = order.OrderID }, order);
         }
-
-        /// <summary>
-        /// Updates an existing order.
-        /// </summary>
-        /// <param name="id">The ID of the order to update.</param>
-        /// <param name="order">The updated order data.</param>
-        /// <returns>No content.</returns>
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateOrder(int id, Orders order)
+        catch (Exception ex)
         {
-            if (id != order.OrderID)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(order).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!OrderExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
+            return StatusCode(500, ex.Message);
         }
+    }
 
-        /// <summary>
-        /// Deletes an order.
-        /// </summary>
-        /// <param name="id">The ID of the order to delete.</param>
-        /// <returns>No content.</returns>
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteOrder(int id)
+    /// <summary>
+    /// Updates an existing order.
+    /// </summary>
+    /// <param name="id">The ID of the order to update.</param>
+    /// <param name="orderDto">The updated order data.</param>
+    /// <returns>An Ok result if the update is successful; otherwise, a bad request or server error result.</returns>
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateOrder(int id, [FromBody] OrdersDTO orderDto)
+    {
+        try
         {
-            var order = await _context.Orders.FindAsync(id);
-            if (order == null)
+            var success = await _ordersService.UpdateOrder(id, orderDto);
+            if (success)
             {
-                return NotFound();
+                return Ok();
             }
-
-            _context.Orders.Remove(order);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-
-        /// <summary>
-        /// Checks if an order with the specified ID exists in the database.
-        /// </summary>
-        /// <param name="id">The ID of the order to check.</param>
-        /// <returns>True if an order with the specified ID exists, otherwise, false.</returns>
-        private bool OrderExists(int id)
-        {
-            return _context.Orders.Any(e => e.OrderID == id);
-        }
-
-        /// <summary>
-        /// Maps a collection of order entities to a list of order DTOs.
-        /// </summary>
-        /// <param name="orders">The collection of order entities to map.</param>
-        /// <returns>A list of mapped order DTOs.</returns>
-        private List<OrdersDTO> MapOrdersToOrderDto(IEnumerable<Orders> orders)
-        {
-            return orders.Select(MapOrderToOrderDto).ToList();
-        }
-
-        /// <summary>
-        /// Maps an order entity to an order DTO.
-        /// </summary>
-        /// <param name="order">The order entity to map.</param>
-        /// <returns>The mapped order DTO.</returns>
-        private OrdersDTO MapOrderToOrderDto(Orders order)
-        {
-            return new OrdersDTO
+            else
             {
-                OrderID = order.OrderID,
-                CustomerID = order.CustomerID,
-                OrderDate = order.OrderDate,
-                Customer = new CustomersDTO
-                {
-                    CustomerID = order.Customer.CustomerID,
-                    FirstName = order.Customer.FirstName,
-                    LastName = order.Customer.LastName,
-                    Email = order.Customer.Email
-                },
-                OrderDetails = order.OrderDetails.Select(od => new OrderDetailDTO
-                {
-                    OrderDetailID = od.OrderDetailID,
-                    ProductID = od.ProductID,
-                    Quantity = od.Quantity,
-                    Price = od.Price
-                }).ToList()
-            };
+                return BadRequest("Failed to update order.");
+            }
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Deletes an order by ID.
+    /// </summary>
+    /// <param name="id">The ID of the order to delete.</param>
+    /// <returns>An Ok result if the deletion is successful; otherwise, a not found or server error result.</returns>
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteOrder(int id)
+    {
+        try
+        {
+            var success = await _ordersService.DeleteOrder(id);
+            if (success)
+            {
+                return Ok();
+            }
+            else
+            {
+                return NotFound($"Order with ID {id} not found.");
+            }
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
         }
     }
 }

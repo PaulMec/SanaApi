@@ -6,7 +6,7 @@
     public class ProductsDTO
     {
         /// <summary>
-        /// Gets or sets the unique identifier of the product.
+        /// Gets or sets the unique identifier for the product.
         /// </summary>
         public int ProductID { get; set; }
 
@@ -21,7 +21,7 @@
         public string Description { get; set; }
 
         /// <summary>
-        /// Gets or sets the URL of the product image.
+        /// Gets or sets the URL to the image representing the product.
         /// </summary>
         public string Image { get; set; }
 
@@ -31,8 +31,13 @@
         public decimal Price { get; set; }
 
         /// <summary>
-        /// Gets or sets the available stock quantity of the product.
+        /// Gets or sets the stock quantity available for the product.
         /// </summary>
         public int Stock { get; set; }
+
+        /// <summary>
+        /// Gets or sets the list of categories associated with the product.
+        /// </summary>
+        public List<CategoryDTO> Categories { get; set; }
     }
 }

@@ -1,156 +1,128 @@
-﻿using DB.Context;
-using DB.Models;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Mvc;
+using SanaStoreAPI.Infrastructure.Services.Interfaces;
 using SanaStoreAPI.Domain.Models;
-using System.Collections.Generic;
-using System.Linq;
+using System;
 using System.Threading.Tasks;
 
-namespace SanaStoreAPI.Presentation.Controllers
+[Route("api/[controller]")]
+[ApiController]
+public class CategoriesController : ControllerBase
 {
+    private readonly ICategoriesService _categoriesService;
+
     /// <summary>
-    /// API controller for managing product categories.
+    /// Constructor that initializes the CategoriesController with the required service.
     /// </summary>
-    [Route("api/[controller]")]
-    [ApiController]
-    public class CategoriesController : ControllerBase
+    /// <param name="categoriesService">Service for category operations.</param>
+    public CategoriesController(ICategoriesService categoriesService)
     {
-        private readonly SanaStoreContext _context;
+        _categoriesService = categoriesService;
+    }
 
-        public CategoriesController(SanaStoreContext context)
+    /// <summary>
+    /// Retrieves all categories.
+    /// </summary>
+    /// <returns>An IActionResult containing all categories or an error message if an exception occurs.</returns>
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        try
         {
-            _context = context;
+            var categories = await _categoriesService.GetCategories();
+            return Ok(categories);
         }
-
-        /// <summary>
-        /// Retrieves all product categories.
-        /// </summary>
-        /// <returns>A list of all product categories.</returns>
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<CategoryDTO>>> GetCategories()
+        catch (Exception ex)
         {
-            var categories = await _context.Categories.ToListAsync();
-            var categoryDTOs = MapCategoriesToCategoryDto(categories);
-            return Ok(categoryDTOs);
+            return StatusCode(500, ex.Message);
         }
+    }
 
-        /// <summary>
-        /// Retrieves a specific product category by its ID.
-        /// </summary>
-        /// <param name="id">The ID of the product category to retrieve.</param>
-        /// <returns>The product category with the specified ID.</returns>
-        [HttpGet("{id}")]
-        public async Task<ActionResult<CategoryDTO>> GetCategory(int id)
+    /// <summary>
+    /// Retrieves a specific category by its ID.
+    /// </summary>
+    /// <param name="id">The ID of the category to retrieve.</param>
+    /// <returns>An IActionResult containing the category if found or NotFound if not found.</returns>
+    [HttpGet("{id}")]
+    public async Task<IActionResult> Get(int id)
+    {
+        try
         {
-            var category = await _context.Categories.FindAsync(id);
-
+            var category = await _categoriesService.GetCategory(id);
             if (category == null)
             {
                 return NotFound();
             }
-
-            var categoryDTO = MapCategoryToCategoryDto(category);
-
-            return Ok(categoryDTO);
+            return Ok(category);
         }
-
-        /// <summary>
-        /// Creates a new product category.
-        /// </summary>
-        /// <param name="category">The product category to create.</param>
-        /// <returns>The newly created product category.</returns>
-        [HttpPost]
-        public async Task<ActionResult<CategoryDTO>> CreateCategory(Category category)
+        catch (Exception ex)
         {
-            _context.Categories.Add(category);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetCategory), new { id = category.CategoryID }, category);
+            return StatusCode(500, ex.Message);
         }
+    }
 
-        /// <summary>
-        /// Updates an existing product category.
-        /// </summary>
-        /// <param name="id">The ID of the product category to update.</param>
-        /// <param name="category">The updated product category data.</param>
-        /// <returns>No content.</returns>
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCategory(int id, Category category)
+    /// <summary>
+    /// Creates a new category based on the data provided.
+    /// </summary>
+    /// <param name="categoryDto">The data transfer object containing the category data.</param>
+    /// <returns>A CreatedAtActionResult with the created category or an error status if an exception occurs.</returns>
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CategoryDTO categoryDto)
+    {
+        try
         {
-            if (id != category.CategoryID)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(category).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!CategoryExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
+            var createdCategory = await _categoriesService.CreateCategory(categoryDto);
+            return CreatedAtAction(nameof(Get), new { id = createdCategory.CategoryID }, createdCategory);
         }
-
-        /// <summary>
-        /// Deletes a product category.
-        /// </summary>
-        /// <param name="id">The ID of the product category to delete.</param>
-        /// <returns>No content.</returns>
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteCategory(int id)
+        catch (Exception ex)
         {
-            var category = await _context.Categories.FindAsync(id);
-            if (category == null)
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Updates an existing category identified by its ID with new data.
+    /// </summary>
+    /// <param name="id">The ID of the category to update.</param>
+    /// <param name="categoryDto">The updated data for the category.</param>
+    /// <returns>NoContent if successful, NotFound if the category does not exist, or an error status if an exception occurs.</returns>
+    [HttpPut("{id}")]
+    public async Task<IActionResult> Update(int id, [FromBody] CategoryDTO categoryDto)
+    {
+        try
+        {
+            var success = await _categoriesService.UpdateCategory(id, categoryDto);
+            if (!success)
             {
                 return NotFound();
             }
-
-            _context.Categories.Remove(category);
-            await _context.SaveChangesAsync();
-
             return NoContent();
         }
-
-        private bool CategoryExists(int id)
+        catch (Exception ex)
         {
-            return _context.Categories.Any(e => e.CategoryID == id);
+            return StatusCode(500, ex.Message);
         }
+    }
 
-        /// <summary>
-        /// Maps a collection of category entities to a list of category DTOs.
-        /// </summary>
-        /// <param name="categories">The collection of category entities to map.</param>
-        /// <returns>A list of mapped category DTOs.</returns>
-        private List<CategoryDTO> MapCategoriesToCategoryDto(IEnumerable<Category> categories)
+    /// <summary>
+    /// Deletes a category by its ID.
+    /// </summary>
+    /// <param name="id">The ID of the category to delete.</param>
+    /// <returns>NoContent if the deletion is successful, NotFound if the category does not exist, or an error status if an exception occurs.</returns>
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try
         {
-            return categories.Select(MapCategoryToCategoryDto).ToList();
-        }
-
-        /// <summary>
-        /// Maps a category entity to a category DTO.
-        /// </summary>
-        /// <param name="category">The category entity to map.</param>
-        /// <returns>The mapped category DTO.</returns>
-        private CategoryDTO MapCategoryToCategoryDto(Category category)
-        {
-            return new CategoryDTO
+            var success = await _categoriesService.DeleteCategory(id);
+            if (!success)
             {
-                CategoryID = category.CategoryID,
-                CategoryName = category.CategoryName
-            };
+                return NotFound();
+            }
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
         }
     }
 }
