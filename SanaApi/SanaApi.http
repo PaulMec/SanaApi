@@ -1,6 +1,0 @@
-@SanaApi_HostAddress = http://localhost:5250
-
-GET {{SanaApi_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
